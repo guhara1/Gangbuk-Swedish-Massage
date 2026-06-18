@@ -6,6 +6,10 @@ BRAND = "바로GO"
 PHONE = "0508-202-4719"
 PHONE_DISPLAY = "0508-202-4719"
 
+# IndexNow 공유 키 — 빙·네이버 등 IndexNow 참여 검색엔진 즉시 색인 통보용.
+# 이 키는 빌드 시 /{INDEXNOW_KEY}.txt 파일로 사이트 루트에 생성된다.
+INDEXNOW_KEY = "48c66c365d6f7192b249fa124edd51d6"
+
 # 상단 메뉴 — 하위 메뉴에는 키워드를 반복하지 않고 지역명·역명만 표시한다.
 NAV = [
     ("홈", "/", []),

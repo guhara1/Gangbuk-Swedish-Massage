@@ -8,16 +8,19 @@ content/ 패키지의 페이지 정의를 읽어 정적 HTML을 생성한다.
   - sitemap.xml 에는 index 허용 페이지만 포함
   - 지역+역+테마 조합 경로는 생성 자체가 불가능한 구조
 """
+import datetime
 import html
 import os
 import re
 import shutil
 import sys
+from email.utils import format_datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from content import PAGES
-from content.site import (BASE_URL, BRAND, NAV, PHONE, PHONE_DISPLAY)
+from content.site import (BASE_URL, BRAND, INDEXNOW_KEY, NAV, PHONE,
+                          PHONE_DISPLAY)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MIN_INDEX_CHARS = 2000
@@ -144,6 +147,7 @@ def render_page(page: dict) -> str:
 <meta name="description" content="{desc}">
 {robots}
 <link rel="canonical" href="{canonical}">
+<link rel="alternate" type="application/rss+xml" title="{BRAND} 매거진" href="{BASE_URL.rstrip('/')}/rss.xml">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
@@ -271,9 +275,13 @@ def build() -> None:
             sitemap_urls.append(BASE_URL.rstrip("/") + "/" + path)
         report.append((path or "/", chars, "noindex" if noindex else "index"))
 
-    # sitemap.xml
+    base = BASE_URL.rstrip("/")
+    today = datetime.date.today().isoformat()
+
+    # sitemap.xml (lastmod 포함 — 색인 신선도 신호)
     urls = "\n".join(
-        f"  <url><loc>{u}</loc></url>" for u in sitemap_urls
+        f"  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>"
+        for u in sitemap_urls
     )
     with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(
@@ -282,12 +290,54 @@ def build() -> None:
             f"{urls}\n</urlset>\n"
         )
 
-    # robots.txt
+    # rss.xml (매거진 글 피드 — 네이버/구글 신규 글 발견 가속)
+    posts = [p for p in PAGES if p["path"].startswith("magazine/") and p["path"] != "magazine/"]
+    posts.sort(key=lambda p: p.get("date", ""), reverse=True)
+    items = []
+    for p in posts:
+        link = f"{base}/{p['path']}"
+        try:
+            d = datetime.datetime.strptime(p.get("date", today), "%Y-%m-%d")
+        except ValueError:
+            d = datetime.datetime.now()
+        pub = format_datetime(d.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=9))))
+        items.append(
+            "    <item>\n"
+            f"      <title>{html.escape(p['h1'])}</title>\n"
+            f"      <link>{link}</link>\n"
+            f"      <guid isPermaLink=\"true\">{link}</guid>\n"
+            f"      <description>{html.escape(p['desc'])}</description>\n"
+            f"      <pubDate>{pub}</pubDate>\n"
+            "    </item>"
+        )
+    last_build = format_datetime(
+        datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+    )
+    with open(os.path.join(ROOT, "rss.xml"), "w", encoding="utf-8") as f:
+        f.write(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n'
+            "  <channel>\n"
+            f"    <title>{html.escape(BRAND)} 매거진</title>\n"
+            f"    <link>{base}/magazine/</link>\n"
+            f'    <atom:link href="{base}/rss.xml" rel="self" type="application/rss+xml"/>\n'
+            "    <description>강북 출장마사지·홈타이 — 마사지·휴식·컨디션 관리 가이드</description>\n"
+            "    <language>ko</language>\n"
+            f"    <lastBuildDate>{last_build}</lastBuildDate>\n"
+            + "\n".join(items)
+            + "\n  </channel>\n</rss>\n"
+        )
+
+    # robots.txt (sitemap + rss 안내)
     with open(os.path.join(ROOT, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(
             "User-agent: *\nAllow: /\n\n"
-            f"Sitemap: {BASE_URL.rstrip('/')}/sitemap.xml\n"
+            f"Sitemap: {base}/sitemap.xml\n"
         )
+
+    # IndexNow 키 파일 — https://도메인/{KEY}.txt 로 접근 가능해야 한다.
+    with open(os.path.join(ROOT, f"{INDEXNOW_KEY}.txt"), "w", encoding="utf-8") as f:
+        f.write(INDEXNOW_KEY + "\n")
 
     # .nojekyll (GitHub Pages)
     open(os.path.join(ROOT, ".nojekyll"), "w").close()
