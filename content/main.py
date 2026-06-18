@@ -69,6 +69,8 @@ _JSONLD = f"""<script type="application/ld+json">
 </script>
 """
 
+_NAVER = '<meta name="naver-site-verification" content="f28a7fc6e16bb412121b85a57ef4a0d0a94277d8">\n'
+
 _HERO = f"""<section class="hero">
   <div class="hero-inner">
     <p class="hero-badge">Premium Visiting Spa · 강북구 전지역</p>
@@ -228,7 +230,7 @@ PAGE = {
     "desc": "강북 출장마사지·홈타이 예약 전 행정동, 역세권, 이용 기준을 정리했습니다.",
     "h1": "강북 출장마사지·홈타이 예약 안내",
     "body": _BODY,
-    "extra_head": _JSONLD,
+    "extra_head": _NAVER + _JSONLD,
     "breadcrumb": [],
     "hero": _HERO,
 }
